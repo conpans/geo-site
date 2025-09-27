@@ -1,0 +1,51 @@
+﻿---
+layout: layout.njk
+title: Home
+---
+<p>Personal notes and dossiers. Fast, simple, sourced. Enjoy!</p>
+<style>
+  .map{max-width:100%;height:auto;display:block}
+
+  /* Everyone (non-clickables too) */
+  .map path{
+    fill:#eef3f6 !important;                 /* light gray land */
+    stroke:#bcc8d3 !important;
+    stroke-width:.6;
+    vector-effect:non-scaling-stroke;
+    transition:fill .08s ease, stroke-width .08s ease;
+  }
+
+  /* Only the countries you’ve published (inside <a> tags) */
+  .map a{ cursor:pointer }
+  .map a path{
+    fill:#e9f3ff !important;                  /* subtle blue tint for clickable */
+  }
+
+  /* Hover/focus for links */
+  .map a:hover path,
+  .map a:focus path{
+    fill:#c9f7ea !important;                  /* highlight */
+    stroke:#0a7 !important;
+    stroke-width:1;
+  }
+
+  /* Optional: show “visited” pages slightly different */
+  .map a:visited path{
+    fill:#e6e6ff !important;
+  }
+
+  /* Optional: tap feedback on mobile */
+  .map a:active path{
+    fill:#bff0e3 !important;
+  }
+</style>
+
+{% include "world.svg" %}
+
+
+<h2>Countries</h2>
+<ul>
+{% for p in collections.countries %}
+  <li><a href="{{ p.url }}">{{ p.data.title }}</a></li>
+{% endfor %}
+</ul>

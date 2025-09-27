@@ -1,0 +1,11 @@
+# build output
+_site/
+
+# deps & caches
+node_modules/
+npm-debug.log*
+package-lock.json
+
+# OS/editor cruft
+.DS_Store
+.vscode/
