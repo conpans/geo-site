@@ -1,3 +1,106 @@
-﻿html{font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:#fff;color:#111}
-main{max-width:70ch;margin:auto;padding:2rem}
-a{color:#0a7;text-decoration:none} a:hover{text-decoration:underline}
+﻿html{
+  font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+  background:#fff;color:#111;
+}
+
+/* Page width */
+main{
+  max-width:1200px;
+  margin:auto;
+  padding:2rem;
+}
+
+/* Links */
+a{ color:#0a7; text-decoration:none }
+a:hover{ text-decoration:underline }
+
+/* ---------------- Map wrapper + responsive SVG ---------------- */
+.map{ margin:1rem 0 1.5rem; }
+.map svg{
+  display:block;
+  width:100%;
+  height:auto;
+  max-width:1200px;     /* remove for full-bleed */
+  margin-inline:auto;
+  touch-action:none;     /* hardening for custom pan/zoom */
+}
+
+/* Base country styling (applies to all paths) */
+.map path{
+  fill:#eef3f6 !important;
+  stroke:#bcc8d3 !important;
+  stroke-width:.6;
+  vector-effect:non-scaling-stroke;
+  transition:fill .08s ease, stroke-width .08s ease;
+}
+
+/* Show hover even before a country is wrapped in <a> */
+.map path:hover{
+  fill:#c9f7ea !important;
+  stroke:#0a7 !important;
+  stroke-width:1;
+}
+
+/* ---------------- Links for countries ---------------- */
+.map a{
+  cursor:pointer;
+  pointer-events:auto;   /* hardening */
+}
+.map a path{                      /* default tint for linked countries */
+  fill:#e9f3ff !important;
+}
+.map a:hover path,
+.map a:focus path{
+  fill:#c9f7ea !important;
+  stroke:#0a7 !important;
+  stroke-width:1;
+  outline:0;
+}
+.map a:visited path{ fill:#e6e6ff !important; }
+.map a:active  path{ fill:#bff0e3 !important; }
+
+/* ---------------- Microstate dots ---------------- */
+.map #microstates circle{
+  fill:#111 !important;
+  stroke:#fff !important;   /* tiny halo */
+  stroke-width:.6;
+  vector-effect:non-scaling-stroke;
+  pointer-events:auto;
+  transition:fill .08s ease;
+}
+.map #microstates circle:hover{ fill:#0a7 !important; }
+
+/* If some dots are tiny paths, keep them consistent */
+.map #microstates path{
+  fill:#111 !important;
+  stroke:#fff !important;
+  stroke-width:.6;
+  vector-effect:non-scaling-stroke;
+  pointer-events:auto;
+  transition:fill .08s ease;
+}
+.map #microstates path:hover{ fill:#0a7 !important; }
+
+/* Linked microstate dots (when wrapped in <a>) */
+.map #microstates a circle{
+  fill:#111 !important;
+  stroke:#fff !important;
+  stroke-width:.6;
+  vector-effect:non-scaling-stroke;
+}
+.map #microstates a:hover circle,
+.map #microstates a:focus circle{
+  fill:#0a7 !important;
+  stroke:#0a7 !important;
+  stroke-width:1;
+  outline:0;
+}
+.map #microstates a:visited circle{ fill:#e6e6ff !important; }
+.map #microstates a:active  circle{ fill:#bff0e3 !important; }
+
+/* Reduce motion */
+@media (prefers-reduced-motion: reduce){
+  .map path,
+  .map #microstates circle,
+  .map #microstates path{ transition:none; }
+}

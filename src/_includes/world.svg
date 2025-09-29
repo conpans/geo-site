@@ -179,4 +179,25 @@
 <path d="M 263.2 162.6 264.6 162.2 265 162.4 265 164 263 164.2 262.6 164 263.4 163.4 263.2 162.6 Z" id="TT"/>
 <path d="M 468.4 178.6 466.4 177.2 465.8 176.2 464.6 176.6 463.6 176.6 463 177 462 176.6 460.6 174.8 460.4 174.2 458.6 173.2 458.2 172 457.2 171 455.6 169.8 455.6 169 454.4 168.2 453 167.4 453.6 167 454.4 166.6 455 164.6 455.6 163.6 457.2 163.4 457.6 164 458.6 165.2 459.4 165.4 460 165 461.6 165.2 462 165.6 464.2 165.6 464.2 165.2 465.4 164.8 465.6 164 466.4 163.6 468.4 164.8 469.4 164.6 470.6 163 471.8 161.8 471.6 160.6 471 159.8 472.4 159.8 472.6 159.2 473.6 159.4 473.4 161 473.6 162.6 474.8 163.6 475 164.2 475 165.4 475.2 165.4 475.4 167.2 475 167.8 473.8 167.8 473 169.2 474.4 169.4 475.6 170.4 476 171.2 477 171.8 478.2 174.2 476.8 175.6 475.4 177 474 178 472.4 178 470.6 178.6 469.2 178 468.4 178.6 Z" id="SS"/>
 </g>
+<g id="microstates" transform="translate(0, -9.96) scale(1)">
+  <circle cx="427.67" cy="103.41" r=".8" data-code="VA" data-name="Vatican City" />
+  <circle cx="416.5" cy="99.46" r=".8" data-code="MC" data-name="Monaco" />
+  <circle cx="427.68" cy="99.02" r=".8" data-code="SM" data-name="San Marino" />
+  <circle cx="403.38" cy="102.11" r=".8" data-code="AD" data-name="Andorra" />
+  <circle cx="421.23" cy="92.09" r=".8" data-code="LI" data-name="Liechtenstein" />
+  <circle cx="431.95" cy="116.23" r=".8" data-code="MT" data-name="Malta" />
+  <circle cx="413.62" cy="86.4" r=".8" data-code="LU" data-name="Luxembourg" />
+  <circle cx="630.71" cy="193.59" r=".8" data-code="SG" data-name="Singapore" />
+  <circle cx="512.35" cy="137.46" r=".8" data-code="BH" data-name="Bahrain" />
+  <circle cx="563.43" cy="186.61" r=".8" data-code="MV" data-name="Maldives" />
+  <circle cx="523.32" cy="203.56" r=".8" data-code="SC" data-name="Seychelles" />
+  <circle cx="527.89" cy="237.25" r=".8" data-code="MU" data-name="Mauritius" />
+  <circle cx="267.68" cy="165.13" r=".8" data-code="BB" data-name="Barbados" />
+  <circle cx="263.62" cy="160.36" r=".8" data-code="DM" data-name="Dominica" />
+  <circle cx="262.67" cy="156.82" r=".8" data-code="AG" data-name="Antigua and Barbuda" />
+  <circle cx="262.94" cy="167.45" r=".8" data-code="GD" data-name="Grenada" />
+  <circle cx="263.81" cy="165.01" r=".8" data-code="VC" data-name="St Vincent and the Grenadines" />
+  <circle cx="264.49" cy="163.59" r=".8" data-code="LC" data-name="Saint Lucia" />
+  <circle cx="260.48" cy="156.18" r=".8" data-code="KN" data-name="Saint Kitts and Nevis" />
+</g>
 </svg>

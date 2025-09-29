@@ -3,44 +3,10 @@ layout: layout.njk
 title: Home
 ---
 <p>Personal notes and dossiers. Fast, simple, sourced. Enjoy!</p>
-<style>
-  .map{max-width:100%;height:auto;display:block}
 
-  /* Everyone (non-clickables too) */
-  .map path{
-    fill:#eef3f6 !important;                 /* light gray land */
-    stroke:#bcc8d3 !important;
-    stroke-width:.6;
-    vector-effect:non-scaling-stroke;
-    transition:fill .08s ease, stroke-width .08s ease;
-  }
-
-  /* Only the countries you’ve published (inside <a> tags) */
-  .map a{ cursor:pointer }
-  .map a path{
-    fill:#e9f3ff !important;                  /* subtle blue tint for clickable */
-  }
-
-  /* Hover/focus for links */
-  .map a:hover path,
-  .map a:focus path{
-    fill:#c9f7ea !important;                  /* highlight */
-    stroke:#0a7 !important;
-    stroke-width:1;
-  }
-
-  /* Optional: show “visited” pages slightly different */
-  .map a:visited path{
-    fill:#e6e6ff !important;
-  }
-
-  /* Optional: tap feedback on mobile */
-  .map a:active path{
-    fill:#bff0e3 !important;
-  }
-</style>
-
-{% include "world.svg" %}
+<div class="map">
+  {% include "world.svg" %}
+</div>
 
 
 <h2>Countries</h2>
@@ -49,3 +15,76 @@ title: Home
   <li><a href="{{ p.url }}">{{ p.data.title }}</a></li>
 {% endfor %}
 </ul>
+
+<script>
+(() => {
+  const svg = document.querySelector('.map svg');
+  if (!svg) return;
+  const NS = 'http://www.w3.org/2000/svg';
+
+  // Wrap all non-<defs> nodes in a viewport group we can transform
+  let vp = svg.querySelector('#vp');
+  if (!vp) {
+    vp = document.createElementNS(NS, 'g');
+    vp.setAttribute('id', 'vp');
+    const nodes = Array.from(svg.childNodes);
+    for (const n of nodes) {
+      if (n.nodeType === 1 && n.tagName.toLowerCase() === 'defs') continue;
+      vp.appendChild(n);
+    }
+    svg.appendChild(vp);
+  }
+
+  let scale = 1, tx = 0, ty = 0;
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const apply = () => vp.setAttribute('transform', `translate(${tx} ${ty}) scale(${scale})`);
+
+  // Zoom with wheel (keep this)
+  svg.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const r = svg.getBoundingClientRect();
+    const cx = e.clientX - r.left, cy = e.clientY - r.top;
+    const prev = scale;
+    const factor = Math.exp(-e.deltaY * 0.0015);
+    scale = clamp(scale * factor, 1, 8);
+    tx = cx - (cx - tx) * (scale / prev);
+    ty = cy - (cy - ty) * (scale / prev);
+    apply();
+  }, { passive: false });
+
+  // Drag to pan — but let clicks on links pass through
+  let dragging = false, sx = 0, sy = 0, stx = 0, sty = 0, moved = false;
+
+  svg.addEventListener('pointerdown', (e) => {
+    // If the press started on an <a> inside the SVG, do nothing:
+    if (e.target.closest('a')) return;
+
+    dragging = true;
+    moved = false;
+    sx = e.clientX; sy = e.clientY; stx = tx; sty = ty;
+    // Only capture when we intend to pan
+    svg.setPointerCapture?.(e.pointerId);
+  });
+
+  svg.addEventListener('pointermove', (e) => {
+    if (!dragging) return;
+    const dx = e.clientX - sx, dy = e.clientY - sy;
+    if (Math.abs(dx) + Math.abs(dy) > 2) moved = true; // tiny threshold
+    tx = stx + dx;
+    ty = sty + dy;
+    apply();
+  });
+
+  const stop = (e) => {
+    if (dragging && svg.hasPointerCapture?.(e.pointerId)) {
+      svg.releasePointerCapture(e.pointerId);
+    }
+    dragging = false;
+  };
+  svg.addEventListener('pointerup', stop);
+  svg.addEventListener('pointercancel', stop);
+
+  apply();
+})();
+</script>
+
