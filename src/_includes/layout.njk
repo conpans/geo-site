@@ -1,11 +1,18 @@
 ﻿<!doctype html>
-<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>{{ title or "Geopolitics Micro-Journal" }}</title>
-<link rel="stylesheet" href="/css/site.css">
-<main>
-  <header>
-    <h1><a href="/">Geopolitics Micro-Journal</a></h1>
-    <nav><a href="/countries/">Countries</a></nav>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{{ title or "◎" }}</title>
+  <link rel="stylesheet" href="/css/site.css" />
+</head>
+<body>
+  <header class="site-head">
+    <a class="brand" href="/">◎</a>
   </header>
-  {{ content | safe }}
-</main>
+
+  <main>
+    {{ content | safe }}
+  </main>
+</body>
+</html>

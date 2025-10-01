@@ -1,90 +1,87 @@
 ﻿---
 layout: layout.njk
-title: Home
+title: ◎
 ---
-<p>Personal notes and dossiers. Fast, simple, sourced. Enjoy!</p>
 
-<div class="map">
+<div class="map-wrap">
   {% include "world.svg" %}
 </div>
 
-
-<h2>Countries</h2>
-<ul>
-{% for p in collections.countries %}
-  <li><a href="{{ p.url }}">{{ p.data.title }}</a></li>
-{% endfor %}
-</ul>
-
 <script>
 (() => {
-  const svg = document.querySelector('.map svg');
+  const svg = document.querySelector('.map');
   if (!svg) return;
-  const NS = 'http://www.w3.org/2000/svg';
 
-  // Wrap all non-<defs> nodes in a viewport group we can transform
-  let vp = svg.querySelector('#vp');
-  if (!vp) {
-    vp = document.createElementNS(NS, 'g');
-    vp.setAttribute('id', 'vp');
-    const nodes = Array.from(svg.childNodes);
-    for (const n of nodes) {
-      if (n.nodeType === 1 && n.tagName.toLowerCase() === 'defs') continue;
-      vp.appendChild(n);
+  const vb0 = svg.viewBox.baseVal;
+  const state = { x: vb0.x, y: vb0.y, w: vb0.width, h: vb0.height };
+
+  const setVB = () =>
+    svg.setAttribute('viewBox', `${state.x} ${state.y} ${state.w} ${state.h}`);
+
+  // drag state
+  let active = false, panning = false, startedOnLink = false, pid = null;
+  let startX = 0, startY = 0, lastX = 0, lastY = 0;
+  let suppressNextClick = false;
+  const THRESH = 4; // px before we treat as a drag
+
+  svg.addEventListener('pointerdown', e => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return; // left click only
+    active = true; panning = false; suppressNextClick = false;
+    startedOnLink = !!e.target.closest('a');
+    pid = e.pointerId;
+    startX = lastX = e.clientX;
+    startY = lastY = e.clientY;
+  });
+
+  svg.addEventListener('pointermove', e => {
+    if (!active || e.pointerId !== pid) return;
+
+    const moved = Math.hypot(e.clientX - startX, e.clientY - startY);
+    if (!panning && moved > THRESH) {
+      panning = true;
+      suppressNextClick = true;               // we’re dragging, not clicking
+      if (!startedOnLink) svg.setPointerCapture?.(pid); // don't capture if started on a link
     }
-    svg.appendChild(vp);
+    if (!panning) return;
+
+    const dx = (e.clientX - lastX) * (state.w / svg.clientWidth);
+    const dy = (e.clientY - lastY) * (state.h / svg.clientHeight);
+    state.x -= dx; state.y -= dy;
+    lastX = e.clientX; lastY = e.clientY;
+    setVB();
+  });
+
+  function endPan(){
+    active = false; panning = false; startedOnLink = false;
+    if (pid != null) { try { svg.releasePointerCapture?.(pid); } catch {} }
+    pid = null;
   }
+  svg.addEventListener('pointerup', endPan);
+  svg.addEventListener('pointercancel', endPan);
+  svg.addEventListener('pointerleave', () => { if (!panning) endPan(); });
 
-  let scale = 1, tx = 0, ty = 0;
-  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
-  const apply = () => vp.setAttribute('transform', `translate(${tx} ${ty}) scale(${scale})`);
-
-  // Zoom with wheel (keep this)
-  svg.addEventListener('wheel', (e) => {
-    e.preventDefault();
-    const r = svg.getBoundingClientRect();
-    const cx = e.clientX - r.left, cy = e.clientY - r.top;
-    const prev = scale;
-    const factor = Math.exp(-e.deltaY * 0.0015);
-    scale = clamp(scale * factor, 1, 8);
-    tx = cx - (cx - tx) * (scale / prev);
-    ty = cy - (cy - ty) * (scale / prev);
-    apply();
-  }, { passive: false });
-
-  // Drag to pan — but let clicks on links pass through
-  let dragging = false, sx = 0, sy = 0, stx = 0, sty = 0, moved = false;
-
-  svg.addEventListener('pointerdown', (e) => {
-    // If the press started on an <a> inside the SVG, do nothing:
-    if (e.target.closest('a')) return;
-
-    dragging = true;
-    moved = false;
-    sx = e.clientX; sy = e.clientY; stx = tx; sty = ty;
-    // Only capture when we intend to pan
-    svg.setPointerCapture?.(e.pointerId);
-  });
-
-  svg.addEventListener('pointermove', (e) => {
-    if (!dragging) return;
-    const dx = e.clientX - sx, dy = e.clientY - sy;
-    if (Math.abs(dx) + Math.abs(dy) > 2) moved = true; // tiny threshold
-    tx = stx + dx;
-    ty = sty + dy;
-    apply();
-  });
-
-  const stop = (e) => {
-    if (dragging && svg.hasPointerCapture?.(e.pointerId)) {
-      svg.releasePointerCapture(e.pointerId);
+  // If we dragged, block the click so links don’t fire accidentally
+  svg.addEventListener('click', e => {
+    if (suppressNextClick) {
+      e.preventDefault();
+      e.stopPropagation();
+      suppressNextClick = false;
     }
-    dragging = false;
-  };
-  svg.addEventListener('pointerup', stop);
-  svg.addEventListener('pointercancel', stop);
+  }, true); // capture so it runs before <a> navigation
 
-  apply();
+  // wheel zoom (cursor-centered)
+  svg.addEventListener('wheel', e => {
+    e.preventDefault();
+    const factor = (e.deltaY > 0 ? 1.1 : 0.9);
+    const px = e.offsetX / svg.clientWidth;
+    const py = e.offsetY / svg.clientHeight;
+    const cx = state.x + px * state.w;
+    const cy = state.y + py * state.h;
+    state.w *= factor; state.h = state.w * (vb0.height / vb0.width);
+    state.x = cx - px * state.w;
+    state.y = cy - py * state.h;
+    setVB();
+  }, { passive:false });
 })();
 </script>
 
