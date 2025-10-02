@@ -5,20 +5,21 @@ title: ◎
 
 <div class="map-wrap">
   {% include "world.svg" %}
+  <div id="country-tip" aria-hidden="true"></div>
 </div>
 
 <script>
 (() => {
-  const svg = document.querySelector('.map');
-  if (!svg) return;
+  const svg = document.querySelector('svg.map');  // single svg reference
+  if (!svg || !svg.viewBox || !svg.viewBox.baseVal) return;
 
+  // ---- base viewBox & limits ----
   const vb0 = svg.viewBox.baseVal;
   const state = { x: vb0.x, y: vb0.y, w: vb0.width, h: vb0.height };
 
-  const setVB = () =>
-    svg.setAttribute('viewBox', `${state.x} ${state.y} ${state.w} ${state.h}`);
+  const setVB = () => svg.setAttribute('viewBox', `${state.x} ${state.y} ${state.w} ${state.h}`);
 
-  // drag state
+  // ---- pan (desktop pointer) ----
   let active = false, panning = false, startedOnLink = false, pid = null;
   let startX = 0, startY = 0, lastX = 0, lastY = 0;
   let suppressNextClick = false;
@@ -41,6 +42,7 @@ title: ◎
       panning = true;
       suppressNextClick = true;               // we’re dragging, not clicking
       if (!startedOnLink) svg.setPointerCapture?.(pid); // don't capture if started on a link
+      hideTip(); // hide tooltip while panning
     }
     if (!panning) return;
 
@@ -69,7 +71,7 @@ title: ◎
     }
   }, true); // capture so it runs before <a> navigation
 
-  // wheel zoom (cursor-centered)
+  // ---- wheel zoom (cursor-centered) ----
   svg.addEventListener('wheel', e => {
     e.preventDefault();
     const factor = (e.deltaY > 0 ? 1.1 : 0.9);
@@ -77,11 +79,77 @@ title: ◎
     const py = e.offsetY / svg.clientHeight;
     const cx = state.x + px * state.w;
     const cy = state.y + py * state.h;
-    state.w *= factor; state.h = state.w * (vb0.height / vb0.width);
+    state.w *= factor;
+    state.h = state.w * (vb0.height / vb0.width);
     state.x = cx - px * state.w;
     state.y = cy - py * state.h;
     setVB();
   }, { passive:false });
+
+  // =======================
+  // Tooltip (flag + name + blurb)
+  // =======================
+
+  // Safe Eleventy data default
+  const INFO = {{ (countryInfo or {}) | dump | safe }};
+
+  const tip = document.getElementById('country-tip');
+  const flagURL = iso2 => `https://flagcdn.com/w320/${iso2}.png`;
+
+  function setTip(code){
+    if (!tip) return;
+    const ISO = code.toUpperCase();
+    const meta = INFO[ISO] || {};
+    const name = (meta.name || ISO).toUpperCase();
+    const blurb = meta.blurb || "";
+    const img = `<img class="flag" alt="" loading="lazy" src="${flagURL(code.toLowerCase())}" />`;
+    tip.innerHTML = `
+      ${img}
+      <div class="body">
+        <div class="name">${name}</div>
+        ${blurb ? `<div class="blurb">${blurb}</div>` : ""}
+      </div>
+    `;
+  }
+  function placeTip(x, y){
+    if (!tip) return;
+    const pad = 16, dx = 18, dy = 18;
+    const w = tip.offsetWidth || 340, h = tip.offsetHeight || 160;
+    let left = x + dx, top = y + dy;
+    if (left + w + pad > window.innerWidth)  left = x - w - dx;
+    if (top  + h + pad > window.innerHeight) top  = y - h - dy;
+    tip.style.left = `${left}px`;
+    tip.style.top  = `${top}px`;
+  }
+  function showTip(){ if (tip){ tip.classList.add('visible'); } }
+  function hideTip(){ if (tip){ tip.classList.remove('visible'); } }
+
+function codeFromTarget(t){
+  // microstate dots (circles)
+  const dot = t.closest('#microstates circle');
+  if (dot && dot.dataset.code) return dot.dataset.code.toLowerCase();
+
+  // anchor-wrapped countries (from linkify-map.mjs)
+  const a = t.closest('a');
+  if (a && a.dataset.iso) return a.dataset.iso;
+
+  // plain country paths as fallback
+  const p = t.closest('path');
+  if (p && p.id && p.id.length === 2) return p.id.toLowerCase();
+
+  return null;
+}
+
+  svg.addEventListener('mousemove', e => {
+    if (panning) return; // don’t show while dragging
+    const code = codeFromTarget(e.target);
+    if (!code){ hideTip(); return; }
+    setTip(code);
+    placeTip(e.clientX, e.clientY);
+    showTip();
+  });
+  svg.addEventListener('mouseleave', hideTip);
 })();
 </script>
+
 

@@ -1,0 +1,30 @@
+{
+  "CO": {
+    "name": "Colombia",
+    "blurb": "South American country with coasts on both the Caribbean and Pacific; exports include oil, coffee, and cut flowers."
+  },
+  "FJ": {
+    "name": "Fiji",
+    "blurb": "South Pacific island state of 300+ islands; tourism, sugar, and remittances anchor the economy."
+  },
+
+  "VA": { "name": "Vatican City", "blurb": "Walled microstate in Rome; spiritual and administrative center of the Roman Catholic Church." },
+  "MC": { "name": "Monaco", "blurb": "City-state on the French Riviera known for finance, tourism, and the Monaco Grand Prix." },
+  "SM": { "name": "San Marino", "blurb": "Enclave microstate within Italy; among the world’s oldest republics." },
+  "AD": { "name": "Andorra", "blurb": "Pyrenees microstate between France and Spain; economy leans on tourism and retail." },
+  "LI": { "name": "Liechtenstein", "blurb": "Alpine principality between Switzerland and Austria; high-income, industry and finance." },
+  "MT": { "name": "Malta", "blurb": "Island state in the central Mediterranean; services, tourism, and logistics driven." },
+  "SG": { "name": "Singapore", "blurb": "City-state at the Malacca gateway; global hub for trade, finance, and logistics." },
+  "BH": { "name": "Bahrain", "blurb": "Gulf archipelago; diversified from oil into finance and services." },
+  "MV": { "name": "Maldives", "blurb": "Indian Ocean atolls; tourism-dependent and climate-vulnerable." },
+  "SC": { "name": "Seychelles", "blurb": "Western Indian Ocean islands; tourism and tuna are key sectors." },
+  "MU": { "name": "Mauritius", "blurb": "Southwest Indian Ocean island; diversified services and manufacturing." },
+  "BB": { "name": "Barbados", "blurb": "Eastern Caribbean island; tourism and services oriented." },
+  "DM": { "name": "Dominica", "blurb": "Lesser Antilles island; eco-tourism and agriculture." },
+  "AG": { "name": "Antigua and Barbuda", "blurb": "Twin-island state; tourism dominates the economy." },
+  "GD": { "name": "Grenada", "blurb": "‘Spice Isle’ of the Windwards; tourism and nutmeg/cocoa exports." },
+  "VC": { "name": "St Vincent and the Grenadines", "blurb": "Windward islands nation; tourism and agriculture." },
+  "LC": { "name": "Saint Lucia", "blurb": "Eastern Caribbean island; tourism-led with light manufacturing." },
+  "KN": { "name": "Saint Kitts and Nevis", "blurb": "Two-island state; tourism and services replaced sugar."
+  }
+}

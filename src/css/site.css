@@ -100,3 +100,44 @@ main{ display:flex; justify-content:center; padding:2rem 1rem }
 @media (prefers-reduced-motion: reduce){
   .map path, #microstates circle{ transition:none }
 }
+
+/* Country hover card */
+#country-tip{
+  position: fixed;
+  z-index: 50;
+  pointer-events: none;           /* never block clicks/drag */
+  background: #fff;
+  color: var(--fg);
+  border-radius: 0px;
+  border:1px solid #edf1f5;  
+  width: 340px;
+  max-width: min(90vw, 360px);
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity .12s ease, transform .12s ease;
+}
+
+#country-tip.visible{
+  opacity: 1;
+  transform: translateY(0);
+}
+
+#country-tip .flag{
+  display:block;
+  width:100%;
+  height:120px;            /* reserve space; tweak to taste */
+  object-fit:contain;      /* <-- was cover; now shows entire flag */
+  background:#fff;         /* neutral gutters for odd ratios */
+  border-bottom:1px solid #e5e7eb;
+}
+
+#country-tip .body{ padding:12px 14px 14px; }
+#country-tip .name{
+  font-weight:800;
+  letter-spacing:.02em;
+  font-size:13px;
+  text-transform:uppercase;
+}
+#country-tip .blurb{
+  margin-top: 6px; font-size: 13px; line-height: 1.35; color: var(--muted);
+}
