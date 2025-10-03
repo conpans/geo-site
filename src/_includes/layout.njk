@@ -57,14 +57,25 @@
     };
 
     document.getElementById('geonote-save').onclick = async () => {
+      const status = document.getElementById('geonote-status');
       status.textContent = 'Saving…';
+
+      // ensure logged in, get token
+      const id = window.netlifyIdentity;
+      const user = id && id.currentUser ? id.currentUser() : null;
+      if (!user) { status.textContent = 'Please log in first.'; return; }
+      const token = await user.jwt();
+
       try {
         const res = await fetch('/.netlify/functions/save-country', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
           body: JSON.stringify({
-            path: location.pathname,
-            content: ta.value
+            path: location.pathname,       // e.g. /country/co/
+            content: document.getElementById('geonote-editor').value
           })
         });
         if (!res.ok) throw new Error(await res.text());
