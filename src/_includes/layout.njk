@@ -6,6 +6,25 @@
   <title>{{ title or "◎" }}</title>
   <link rel="stylesheet" href="/css/site.css" />
 </head>
+
+<!-- TEMP: load Identity everywhere just to accept invite -->
+<script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
+<script>
+  // If we land with #invite_token=..., open the accept-invite flow
+  (function () {
+    function tryAccept() {
+      if (!window.netlifyIdentity) return;
+      if (location.hash.includes('invite_token=')) {
+        netlifyIdentity.on('init', () => {
+          netlifyIdentity.acceptInvite().catch(console.error);
+        });
+      }
+    }
+    if (document.readyState === 'complete') tryAccept();
+    else window.addEventListener('load', tryAccept);
+  })();
+</script>
+
 <body>
   <header class="site-head">
     <a class="brand" href="/">◎</a>
