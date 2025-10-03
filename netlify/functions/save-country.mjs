@@ -1,81 +1,65 @@
 // netlify/functions/save-country.mjs
-// Writes edited content to src/country/<code>.md on your GitHub repo
+export default async (req, ctx) => {
+  if (req.method !== "POST") {
+    return new Response("Method not allowed", { status: 405 });
+  }
 
-import { Buffer } from 'node:buffer';
+  const { code, body } = await req.json();
+  const owner = Deno.env.get("GITHUB_OWNER");
+  const repo  = Deno.env.get("GITHUB_REPO");
+  const token = Deno.env.get("GITHUB_TOKEN");
+  const branch = Deno.env.get("GITHUB_BRANCH") || "main";
+  const path = `src/country/${code.toLowerCase()}.md`;
 
-const OWNER = process.env.GITHUB_OWNER; // e.g. "conpans"
-const REPO  = process.env.GITHUB_REPO;  // e.g. "geo-site"
-const BRANCH = process.env.GITHUB_BRANCH || 'main';
-const TOKEN = process.env.GITHUB_TOKEN; // fine-grained PAT
-const API = 'https://api.github.com';
-
-function isoFromPath(path) {
-  // expected /country/<iso2>/
-  const m = path.match(/^\/country\/([a-z]{2})\/?$/i);
-  return m ? m[1].toLowerCase() : null;
-}
-
-async function getFileSha(path) {
-  const url = `${API}/repos/${OWNER}/${REPO}/contents/${encodeURIComponent(path)}?ref=${encodeURIComponent(BRANCH)}`;
-  const res = await fetch(url, { headers: { Authorization: `Bearer ${TOKEN}`, 'User-Agent': 'netlify-func' }});
-  if (res.status === 404) return null;
-  if (!res.ok) throw new Error(`GitHub GET failed: ${res.status} ${await res.text()}`);
-  const json = await res.json();
-  return json.sha || null;
-}
-
-export async function handler(event, context) {
-  try {
-    // --------- auth: require logged-in Netlify Identity user ----------
-    // If you want to skip auth while testing, comment the next 6 lines.
-    const user = context.clientContext?.user;
-    if (!user) {
-      return { statusCode: 401, body: 'Unauthorized (log in with Netlify Identity)' };
-    }
-
-    if (event.httpMethod !== 'POST') {
-      return { statusCode: 405, body: 'Method Not Allowed' };
-    }
-
-    const { path, content } = JSON.parse(event.body || '{}');
-    const iso = isoFromPath(path || '');
-    if (!iso) return { statusCode: 400, body: 'Bad path. Expected /country/<iso2>/' };
-
-    // file in repo to write
-    const filePath = `src/country/${iso}.md`;
-
-    // Create simple markdown body; you can format however you like
-    const md = (content || '').trim() + '\n';
-
-    // get current sha if exists (required by GitHub for updates)
-    const sha = await getFileSha(filePath);
-
-    // commit via GitHub Contents API
-    const putUrl = `${API}/repos/${OWNER}/${REPO}/contents/${encodeURIComponent(filePath)}`;
-    const payload = {
-      message: `update ${iso}.md via inline editor`,
-      content: Buffer.from(md, 'utf8').toString('base64'),
-      branch: BRANCH,
-      ...(sha ? { sha } : {})
-    };
-
-    const putRes = await fetch(putUrl, {
-      method: 'PUT',
+  const api = (url, init={}) =>
+    fetch(`https://api.github.com${url}`, {
+      ...init,
       headers: {
-        Authorization: `Bearer ${TOKEN}`,
-        'Content-Type': 'application/json',
-        'User-Agent': 'netlify-func'
-      },
-      body: JSON.stringify(payload)
+        "Authorization": `Bearer ${token}`,
+        "Accept": "application/vnd.github+json",
+        "Content-Type": "application/json",
+        ...init.headers
+      }
     });
 
-    if (!putRes.ok) {
-      const txt = await putRes.text();
-      return { statusCode: 502, body: `GitHub write failed: ${putRes.status} ${txt}` };
-    }
-
-    return { statusCode: 200, body: JSON.stringify({ ok: true }) };
-  } catch (err) {
-    return { statusCode: 500, body: `Server error: ${err.message}` };
+  // get current file (to preserve front-matter)
+  let sha = null, existing = "";
+  const getRes = await api(`/repos/${owner}/${repo}/contents/${encodeURIComponent(path)}?ref=${branch}`);
+  if (getRes.ok) {
+    const j = await getRes.json();
+    sha = j.sha;
+    existing = atob(j.content.replace(/\n/g, ""));
   }
-}
+
+  // extract front-matter if present
+  let fm = "";
+  if (existing.startsWith("---")) {
+    const end = existing.indexOf("\n---", 3);
+    if (end !== -1) fm = existing.slice(0, end + 4).trim() + "\n\n";
+  }
+  // default front-matter if missing
+  if (!fm) {
+    const ISO = code.toUpperCase();
+    fm = `---\nlayout: layout.njk\ntitle: ${ISO}\npermalink: /country/${code.toLowerCase()}/\n---\n\n`;
+  }
+
+  const newContent = fm + (body ?? "").trim() + "\n";
+  const b64 = btoa(unescape(encodeURIComponent(newContent)));
+
+  // commit back to GitHub
+  const commit = await api(`/repos/${owner}/${repo}/contents/${encodeURIComponent(path)}`, {
+    method: "PUT",
+    body: JSON.stringify({
+      message: `Update ${code}.md via inline editor`,
+      content: b64,
+      branch,
+      sha
+    })
+  });
+
+  if (!commit.ok) {
+    const err = await commit.text();
+    return new Response(err, { status: 500 });
+  }
+  return new Response("ok");
+};

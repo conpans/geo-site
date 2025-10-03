@@ -48,19 +48,23 @@
     `;
     document.body.appendChild(wrap);
 
+    // Prefill textarea once (keeps YAML front matter out)
+    const raw = document.querySelector('main')?.innerText || "";
+    const text = raw.startsWith('---')
+      ? raw.slice(raw.indexOf('\n---', 3) + 4).trimStart()
+      : raw;
     const ta = document.getElementById('geonote-editor');
-    ta.value = document.querySelector('main')?.innerText?.trim() || '';
-
     const status = document.getElementById('geonote-status');
+    ta.value = text;
+
+    // Buttons
     document.getElementById('geonote-login').onclick = () => {
       window.netlifyIdentity?.open();
     };
 
     document.getElementById('geonote-save').onclick = async () => {
-      const status = document.getElementById('geonote-status');
       status.textContent = 'Saving…';
 
-      // ensure logged in, get token
       const id = window.netlifyIdentity;
       const user = id && id.currentUser ? id.currentUser() : null;
       if (!user) { status.textContent = 'Please log in first.'; return; }
@@ -74,8 +78,8 @@
             'Authorization': `Bearer ${token}`
           },
           body: JSON.stringify({
-            path: location.pathname,       // e.g. /country/co/
-            content: document.getElementById('geonote-editor').value
+            path: location.pathname,                 // e.g. /country/co/
+            content: ta.value
           })
         });
         if (!res.ok) throw new Error(await res.text());
