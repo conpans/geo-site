@@ -16,7 +16,9 @@
   <main>
     {{ content | safe }}
   </main>
-  
+
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
 <!-- Netlify Identity: load once, globally -->
 <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
 
@@ -54,7 +56,7 @@
 })();
 </script>
 
-<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
 
 
 <!-- Inline editor (only shows when ?edit=1; if logged out, shows a login strip) -->
@@ -83,21 +85,17 @@
     return;
   }
 
-  // ---------- Utilities for textarea editing ----------
-  function getSel(el){
-    return {start: el.selectionStart, end: el.selectionEnd, val: el.value};
-  }
+  // ---------- small helpers ----------
+  function getSel(el){ return {start: el.selectionStart, end: el.selectionEnd, val: el.value}; }
   function setSel(el, start, end){ el.focus(); el.setSelectionRange(start, end); }
   function surround(el, before, after){
     const {start, end, val} = getSel(el);
     const selected = val.slice(start, end);
-    const out = val.slice(0,start) + before + selected + after + val.slice(end);
-    el.value = out;
+    el.value = val.slice(0,start) + before + selected + after + val.slice(end);
     setSel(el, start + before.length, end + before.length);
   }
   function togglePrefix(el, prefix){
     const {start, end, val} = getSel(el);
-    // operate on full lines in range
     const lineStart = val.lastIndexOf('\n', start - 1) + 1;
     const lineEnd   = val.indexOf('\n', end);
     const endIdx    = lineEnd === -1 ? val.length : lineEnd;
@@ -105,15 +103,14 @@
     const allHave = lines.every(l => l.startsWith(prefix));
     const newLines = lines.map(l => allHave ? l.replace(prefix,'') : prefix + l);
     const out = val.slice(0,lineStart) + newLines.join('\n') + val.slice(endIdx);
-    const delta = (newLines.join('\n').length - (lines.join('\n').length));
+    const delta = newLines.join('\n').length - lines.join('\n').length;
     el.value = out;
     setSel(el, start + (allHave? -prefix.length : prefix.length), end + delta);
   }
   function insertBlock(el, text){
     const {start, end, val} = getSel(el);
     const block = (start>0 && val[start-1] !== '\n' ? '\n\n' : '\n') + text + '\n\n';
-    const out = val.slice(0,start) + block + val.slice(end);
-    el.value = out;
+    el.value = val.slice(0,start) + block + val.slice(end);
     setSel(el, start + block.length, start + block.length);
   }
   function ensureSourcesSection(el){
@@ -122,152 +119,114 @@
     }
   }
 
-  // ---------- Editor UI ----------
+  // ---------- UI ----------
   const wrap = document.createElement('div');
   wrap.style.cssText = `
     position:fixed;left:16px;right:16px;bottom:16px;background:#fff;border:1px solid #e3e7eb;
     border-radius:10px;box-shadow:0 12px 32px rgba(16,24,40,.18),0 1px 2px rgba(16,24,40,.06);
     z-index:9999;padding:12px;`;
   wrap.innerHTML = `
-  <div style="margin-bottom:8px;font-weight:700;display:flex;gap:8px;align-items:center">
-    <span>Inline editor</span>
-    <label style="margin-left:auto;display:flex;gap:6px;align-items:center;font-weight:500">
-      <input id="geonote-preview-toggle" type="checkbox" />
-      Preview
-    </label>
-  </div>
+    <div style="margin-bottom:8px;font-weight:700;display:flex;gap:8px;align-items:center">
+      <span>Inline editor</span>
+      <label style="margin-left:auto;display:flex;gap:6px;align-items:center;font-weight:500">
+        <input id="geonote-preview-toggle" type="checkbox" />
+        Preview
+      </label>
+    </div>
 
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-    <div>
-      <div id="geonote-toolbar" style="display:flex;gap:6px;margin-bottom:6px">
-        <button data-b="**" title="Bold">B</button>
-        <button data-i="*"  title="Italic">/</button>
-        <button data-link="1" title="Link">Link</button>
-        <button data-h="## " title="H2">H2</button>
-        <button data-h="### " title="H3">H3</button>
-        <button data-ul="- " title="• List">• List</button>
-        <button data-ol="1. " title="1. List">1. List</button>
-        <button id="img-insert" title="Insert image">IMG</button>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div>
+        <div id="geonote-toolbar" style="display:flex;gap:6px;margin-bottom:6px">
+          <button data-act="bold"   title="Bold">B</button>
+          <button data-act="italic" title="Italic">/</button>
+          <button data-act="link"   title="Link">Link</button>
+          <button data-act="h2"     title="H2">H2</button>
+          <button data-act="h3"     title="H3">H3</button>
+          <button data-act="ul"     title="• List">• List</button>
+          <button data-act="ol"     title="1. List">1. List</button>
+          <button id="img-insert"  title="Insert image">IMG</button>
+        </div>
+
+        <textarea id="geonote-editor"
+          style="width:100%;height:240px;font:14px/1.5 ui-sans-serif,system-ui;resize:vertical;"></textarea>
+
+        <div style="margin-top:8px;display:flex;gap:8px;align-items:center">
+          <button id="geonote-save"
+            style="border:1px solid #d6dbe1;background:#fff;border-radius:6px;padding:6px 10px;cursor:pointer">Save</button>
+          <span id="geonote-status" style="margin-left:8px;color:#6b7280;"></span>
+          <a id="geonote-view" style="margin-left:auto;display:none" href="#">View live →</a>
+        </div>
       </div>
-      <textarea id="geonote-editor"
-        style="width:100%;height:240px;font:14px/1.5 ui-sans-serif,system-ui;resize:vertical;"></textarea>
-      <div style="margin-top:8px;display:flex;gap:8px;align-items:center">
-        <button id="geonote-save"
-          style="border:1px solid #d6dbe1;background:#fff;border-radius:6px;padding:6px 10px;cursor:pointer">Save</button>
-        <span id="geonote-status" style="margin-left:8px;color:#6b7280;"></span>
-        <a id="geonote-view" style="margin-left:auto;display:none" href="#">View live →</a>
+
+      <div id="geonote-preview"
+        style="border:1px solid #e5e7eb;border-radius:8px;padding:12px;overflow:auto;background:#fafafa;display:none">
+        <!-- live preview -->
       </div>
     </div>
 
-    <div id="geonote-preview"
-      style="border:1px solid #e5e7eb;border-radius:8px;padding:12px;overflow:auto;background:#fafafa;display:none">
-      <!-- live preview renders here -->
+    <div style="display:flex;gap:8px;margin-top:10px;align-items:center">
+      <input id="src-title" placeholder="Source title" style="flex:0 0 220px;padding:6px 8px;border:1px solid #d6dbe1;border-radius:6px" />
+      <input id="src-url"   placeholder="https://…"     style="flex:1;padding:6px 8px;border:1px solid #d6dbe1;border-radius:6px" />
+      <button id="src-add"  style="border:1px solid #d6dbe1;background:#fff;border-radius:6px;padding:6px 10px;cursor:pointer">Add source</button>
     </div>
-  </div>
-`;
 
+    <div id="slash-menu" style="display:none;margin-top:8px;border:1px solid #e3e7eb;border-radius:6px;padding:6px 8px;background:#fff">
+      <strong>Snippets:</strong>
+      <button data-snippet="factbox">/factbox</button>
+      <button data-snippet="quote">/quote</button>
+      <button data-snippet="callout">/callout</button>
+      <button data-snippet="source">/source</button>
+    </div>
+  `;
   document.body.appendChild(wrap);
 
-  // Prefill (strip YAML front-matter if present)
+  // Prefill from page (strip YAML front-matter if present)
   const raw = document.querySelector('main')?.innerText || "";
   const text = raw.startsWith('---') ? raw.slice(raw.indexOf('\n---', 3) + 4).trimStart() : raw;
-  const ta = document.getElementById('geonote-editor');
+  const ta       = document.getElementById('geonote-editor');
+  const preview  = document.getElementById('geonote-preview');
+  const pToggle  = document.getElementById('geonote-preview-toggle');
+  const saveBtn  = document.getElementById('geonote-save');
+  const status   = document.getElementById('geonote-status');
+  const viewLink = document.getElementById('geonote-view');
   ta.value = text;
 
-  const saveBtn = document.getElementById('geonote-save');
-  const status  = document.getElementById('geonote-status');
-  const viewLink= document.getElementById('geonote-view');
+  // ---------- Toolbar ----------
+  document.getElementById('geonote-toolbar').addEventListener('click', (ev) => {
+    const b = ev.target.closest('button'); if (!b) return;
+    const act = b.dataset.act;
+    if (act === 'bold')   return surround(ta, '**','**');
+    if (act === 'italic') return surround(ta, '*','*');
+    if (act === 'link') {
+      const sel = ta.value.substring(ta.selectionStart, ta.selectionEnd) || 'link text';
+      const url = prompt('URL for link:', 'https://'); if (!url) return;
+      const {start,end,val} = getSel(ta);
+      const md = `[${sel}](${url})`;
+      ta.value = val.slice(0,start) + md + val.slice(end);
+      setSel(ta, start+md.length, start+md.length); return;
+    }
+    if (act === 'h2') return togglePrefix(ta, '## ');
+    if (act === 'h3') return togglePrefix(ta, '### ');
+    if (act === 'ul') return togglePrefix(ta, '- ');
+    if (act === 'ol') return togglePrefix(ta, '1. ');
+  });
 
-  // PREVIEW WIRING
-const previewBox    = document.getElementById('geonote-preview');
-const previewToggle = document.getElementById('geonote-preview-toggle');
-
-function renderPreview(md){
-  // requires <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-  previewBox.innerHTML = marked.parse(md);
-}
-
-// live update (light debounce)
-let _t;
-ta.addEventListener('input', () => {
-  if (!previewToggle.checked) return;
-  clearTimeout(_t);
-  _t = setTimeout(() => renderPreview(ta.value), 150);
-});
-
-// show/hide preview
-previewToggle.addEventListener('change', () => {
-  previewBox.style.display = previewToggle.checked ? 'block' : 'none';
-  if (previewToggle.checked) renderPreview(ta.value);
-});
-
-
-// ---------- Toolbar actions ----------
-function wrapSel(left, right = left){
-  const s = ta.selectionStart, e = ta.selectionEnd;
-  const before = ta.value.slice(0, s);
-  const sel    = ta.value.slice(s, e);
-  const after  = ta.value.slice(e);
-  ta.value = `${before}${left}${sel}${right}${after}`;
-  ta.focus();
-  ta.selectionStart = s + left.length;
-  ta.selectionEnd   = ta.selectionStart + sel.length;
-  ta.dispatchEvent(new Event('input'));
-}
-function togglePrefix(prefix){
-  const s = ta.selectionStart, e = ta.selectionEnd, val = ta.value;
-  const lineStart = val.lastIndexOf('\n', s - 1) + 1;
-  const lineEnd   = val.indexOf('\n', e);
-  const endIdx    = lineEnd === -1 ? val.length : lineEnd;
-  const lines     = val.slice(lineStart, endIdx).split('\n');
-  const allHave   = lines.every(l => l.startsWith(prefix));
-  const newLines  = lines.map(l => allHave ? l.replace(prefix,'') : prefix + l);
-  const out       = val.slice(0,lineStart) + newLines.join('\n') + val.slice(endIdx);
-  const delta     = (newLines.join('\n').length - (lines.join('\n').length));
-  ta.value = out;
-  ta.focus();
-  ta.selectionStart = s + (allHave ? -prefix.length : prefix.length);
-  ta.selectionEnd   = e + delta;
-  ta.dispatchEvent(new Event('input'));
-}
-
-document.getElementById('geonote-toolbar').addEventListener('click', (ev) => {
-  const b = ev.target.closest('button'); if (!b) return;
-
-  if (b.dataset.b   != null) return wrapSel('**','**'); // Bold
-  if (b.dataset.i   != null) return wrapSel('*','*');   // Italic
-  if (b.dataset.h)            return togglePrefix(b.dataset.h); // H2/H3
-  if (b.dataset.ul)           return togglePrefix('- ');        // bullets
-  if (b.dataset.ol)           return togglePrefix('1. ');       // numbered
-  if (b.dataset.link != null){
-    const url = prompt('URL','https://'); if (!url) return;
-    return wrapSel('[', `](${url})`);
-  }
-});
-
-document.getElementById('img-insert')?.addEventListener('click', () => {
-  const url   = prompt('Image URL'); if (!url) return;
-  const side  = (prompt('Float: left / right / none','left') || 'left').toLowerCase();
-  const width = prompt('Width (px or %)','320') || '320';
-  const cap   = prompt('Caption (optional)','') || '';
-  const unit  = /^\d+$/.test(width) ? 'px' : ''; // allow "45%" or "320"
-
-  const fig = `
-<figure class="img ${side !== 'none' ? 'float-'+side : ''}" style="max-width:${width}${unit}">
+  // ---------- Simple image helper ----------
+  document.getElementById('img-insert').addEventListener('click', () => {
+    const url  = prompt('Image URL:'); if (!url) return;
+    const side = (prompt('Float: left / right / none', 'left') || 'left').toLowerCase();
+    const cap  = prompt('Caption (optional)', '') || '';
+    const figW = prompt('Width (px or %)', '320') || '320';
+    const unit = /^\d+%$/.test(figW) ? '' : 'px';
+    const fig  = `
+<figure style="float:${side};margin:8px;max-width:${figW}${unit}">
   <img src="${url}" alt="">
-  ${cap ? `<figcaption>${cap}</figcaption>` : ''}
-</figure>`.trim();
+  ${cap ? `<figcaption style="font-size:12px;color:#6b7280">${cap}</figcaption>` : ''}
+</figure>`;
+    insertBlock(ta, fig.trim());
+  });
 
-  const s = ta.selectionStart, e = ta.selectionEnd;
-  ta.value = ta.value.slice(0,s) + '\n' + fig + '\n' + ta.value.slice(e);
-  ta.focus();
-  ta.selectionStart = ta.selectionEnd = s + fig.length + 2;
-  ta.dispatchEvent(new Event('input'));
-});
-
-
-
-  // ---------- Quick "Add source" ----------
+  // ---------- Quick “Add source” ----------
   document.getElementById('src-add').addEventListener('click', () => {
     const title = (document.getElementById('src-title').value || '').trim();
     const url   = (document.getElementById('src-url').value   || '').trim();
@@ -282,57 +241,45 @@ document.getElementById('img-insert')?.addEventListener('click', () => {
   // ---------- Slash menu ----------
   const slashMenu = document.getElementById('slash-menu');
   let slashActive = false, slashBuffer = '';
-
   function showSlash(){ slashMenu.style.display = 'block'; }
   function hideSlash(){ slashMenu.style.display = 'none'; slashActive=false; slashBuffer=''; }
-
   function insertSnippet(kind){
     if (kind === 'factbox') insertBlock(ta, '> **Fact:** …');
     if (kind === 'quote')   insertBlock(ta, '> “Quote…”\n> — Attribution');
     if (kind === 'callout') insertBlock(ta, '> **Note:** …');
-    if (kind === 'source')  ensureSourcesSection(ta), insertBlock(ta, '- [Title](https://example.com)');
+    if (kind === 'source')  { ensureSourcesSection(ta); insertBlock(ta, '- [Title](https://example.com)'); }
     hideSlash();
   }
-
-  slashMenu.addEventListener('mouseover', (e) => {
-    if (e.target.dataset.snippet) e.target.style.background = '#f6f7f9';
-  }, true);
-  slashMenu.addEventListener('mouseout', (e) => {
-    if (e.target.dataset.snippet) e.target.style.background = 'transparent';
-  }, true);
-  slashMenu.addEventListener('click', (e) => {
-    const k = e.target?.dataset?.snippet;
-    if (k) insertSnippet(k);
-  });
-
+  slashMenu.addEventListener('click', e => { const k=e.target?.dataset?.snippet; if(k) insertSnippet(k); });
   ta.addEventListener('keydown', (e) => {
     if (e.key === '/' && !slashActive){
-      // only trigger if at line start or after space
       const i = ta.selectionStart;
       const prev = ta.value[i-1] || '\n';
       if (prev === '\n' || prev === ' ') { slashActive = true; slashBuffer = ''; showSlash(); }
     } else if (slashActive) {
-      if (e.key.length === 1 && /[a-z]/i.test(e.key)) {
-        slashBuffer += e.key.toLowerCase();
-      } else if (e.key === 'Backspace') {
-        slashBuffer = slashBuffer.slice(0,-1);
-        if (!slashBuffer) hideSlash();
-      } else if (e.key === 'Escape'){
-        hideSlash();
-      } else if (e.key === 'Enter'){
-        e.preventDefault();
-        const map = { factbox:'factbox', quote:'quote', callout:'callout', source:'source' };
-        const k = map[slashBuffer] || null;
-        if (k) insertSnippet(k); else hideSlash();
-      }
+      if (e.key.length === 1 && /[a-z]/i.test(e.key))       slashBuffer += e.key.toLowerCase();
+      else if (e.key === 'Backspace')                       { slashBuffer = slashBuffer.slice(0,-1); if (!slashBuffer) hideSlash(); }
+      else if (e.key === 'Escape')                          hideSlash();
+      else if (e.key === 'Enter') { e.preventDefault(); const k = ({factbox:'factbox',quote:'quote',callout:'callout',source:'source'})[slashBuffer]; if (k) insertSnippet(k); else hideSlash(); }
     }
+  });
+
+  // ---------- Live preview wiring ----------
+  function renderPreview(md){ preview.innerHTML = marked.parse(md); }
+  let t;
+  pToggle.addEventListener('change', () => {
+    preview.style.display = pToggle.checked ? 'block' : 'none';
+    if (pToggle.checked) renderPreview(ta.value);
+  });
+  ta.addEventListener('input', () => {
+    if (!pToggle.checked) return;
+    clearTimeout(t); t = setTimeout(() => renderPreview(ta.value), 150);
   });
 
   // ---------- Save ----------
   saveBtn.addEventListener('click', async () => {
     status.textContent = 'Saving…';
     saveBtn.disabled = true;
-
     try {
       const token = await currentUser().jwt();
       const res = await fetch('/.netlify/functions/save-country', {
@@ -352,6 +299,7 @@ document.getElementById('img-insert')?.addEventListener('click', () => {
   });
 })();
 </script>
+
 
 
 
