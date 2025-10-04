@@ -154,3 +154,18 @@ main{ display:flex; justify-content:center; padding:2rem 1rem }
 }
 .edit-btn:hover{ background:#f6f7f9 }
 
+/* editor buttons */
+#geonote-toolbar button {
+  border: 1px solid #d6dbe1;
+  background: #fff;
+  border-radius: 6px;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+#geonote-toolbar button:hover { background:#f6f7f9; }
+
+.img { margin: 1rem 0; }
+.img.float-left  { float: left;  margin: 0.25rem 1rem 0.75rem 0; }
+.img.float-right { float: right; margin: 0.25rem 0 0.75rem 1rem; }
+.img img { display:block; width:100%; height:auto; }
+.img figcaption { font-size:.875rem; color:#6b7280; margin-top:.25rem; }
