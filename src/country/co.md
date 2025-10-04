@@ -4,4 +4,4 @@ title: Colombia
 permalink: /country/co/
 ---
 
-Test 3 of my inline editor.
+Test 3 of my inline editor. I clicked a button.
