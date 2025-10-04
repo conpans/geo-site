@@ -4,4 +4,4 @@ title: Colombia
 permalink: /country/co/
 ---
 
-This is a test of my new inline editor. This maybe be a feature that will stay for the future. Further development coming.
+Test 3 of my inline editor.
