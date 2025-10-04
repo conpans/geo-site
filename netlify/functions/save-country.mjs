@@ -13,8 +13,9 @@ export async function handler(event) {
       return { statusCode: 400, body: 'Bad payload: expected { path, content }' };
     }
 
-    // Map /country/co/  ->  src/country/co.md
-    const filePath = 'src' + path.replace(/\/$/, '').replace(/^\/+/, '') + '.md';
+    // Map /country/co/ -> src/country/co.md  (fix missing slash)
+    const normalized = path.replace(/\/+$/, '').replace(/^\/+/, ''); // "country/co"
+    const filePath = `src/${normalized}.md`;                         // "src/country/co.md"
 
     const owner  = process.env.GITHUB_OWNER;
     const repo   = process.env.GITHUB_REPO;
