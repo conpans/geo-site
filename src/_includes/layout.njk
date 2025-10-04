@@ -54,6 +54,9 @@
 })();
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+
 <!-- Inline editor (only shows when ?edit=1; if logged out, shows a login strip) -->
 <script>
 (() => {
@@ -126,43 +129,43 @@
     border-radius:10px;box-shadow:0 12px 32px rgba(16,24,40,.18),0 1px 2px rgba(16,24,40,.06);
     z-index:9999;padding:12px;`;
   wrap.innerHTML = `
-    <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
-      <!-- Toolbar -->
-      <div id="geonote-toolbar" style="display:flex;gap:6px;flex-wrap:wrap">
-        <button data-act="bold">B</button>
-        <button data-act="italic"><em>I</em></button>
-        <button data-act="link">Link</button>
-        <span style="width:1px;height:22px;background:#e5e7eb;margin:0 6px"></span>
-        <button data-act="h2">H2</button>
-        <button data-act="h3">H3</button>
-        <button data-act="ul">• List</button>
-        <button data-act="ol">1. List</button>
+  <div style="margin-bottom:8px;font-weight:700;display:flex;gap:8px;align-items:center">
+    <span>Inline editor</span>
+    <label style="margin-left:auto;display:flex;gap:6px;align-items:center;font-weight:500">
+      <input id="geonote-preview-toggle" type="checkbox" />
+      Preview
+    </label>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+    <div>
+      <div id="geonote-toolbar" style="display:flex;gap:6px;margin-bottom:6px">
+        <button data-b="**" title="Bold">B</button>
+        <button data-i="*"  title="Italic">/</button>
+        <button data-link="1" title="Link">Link</button>
+        <button data-h="## " title="H2">H2</button>
+        <button data-h="### " title="H3">H3</button>
+        <button data-ul="- " title="• List">• List</button>
+        <button data-ol="1. " title="1. List">1. List</button>
+        <button id="img-insert" title="Insert image">IMG</button>
       </div>
-
-      <!-- Quick source helper -->
-      <div style="display:flex;gap:6px;margin-left:auto;align-items:center">
-        <input id="src-title" placeholder="Source title" style="width:180px;padding:6px;border:1px solid #e3e7eb;border-radius:6px">
-        <input id="src-url"   placeholder="https://…" style="width:220px;padding:6px;border:1px solid #e3e7eb;border-radius:6px">
-        <button id="src-add"  style="border:1px solid #d6dbe1;background:#fff;border-radius:6px;padding:6px 10px;cursor:pointer">Add source</button>
+      <textarea id="geonote-editor"
+        style="width:100%;height:240px;font:14px/1.5 ui-sans-serif,system-ui;resize:vertical;"></textarea>
+      <div style="margin-top:8px;display:flex;gap:8px;align-items:center">
+        <button id="geonote-save"
+          style="border:1px solid #d6dbe1;background:#fff;border-radius:6px;padding:6px 10px;cursor:pointer">Save</button>
+        <span id="geonote-status" style="margin-left:8px;color:#6b7280;"></span>
+        <a id="geonote-view" style="margin-left:auto;display:none" href="#">View live →</a>
       </div>
     </div>
 
-    <textarea id="geonote-editor" style="width:100%;height:260px;font:14px/1.5 ui-sans-serif,system-ui;resize:vertical;"></textarea>
-
-    <div style="margin-top:8px;display:flex;gap:8px;align-items:center">
-      <button id="geonote-save" style="border:1px solid #d6dbe1;background:#fff;border-radius:6px;padding:6px 10px;cursor:pointer">Save</button>
-      <span id="geonote-status" style="margin-left:8px;color:#6b7280;"></span>
-      <a id="geonote-view" style="margin-left:auto;display:none" href="#">View live →</a>
+    <div id="geonote-preview"
+      style="border:1px solid #e5e7eb;border-radius:8px;padding:12px;overflow:auto;background:#fafafa;display:none">
+      <!-- live preview renders here -->
     </div>
+  </div>
+`;
 
-    <!-- Slash menu -->
-    <div id="slash-menu" style="display:none;position:absolute;bottom:90px;left:28px;background:#fff;border:1px solid #e3e7eb;border-radius:8px;box-shadow:0 12px 32px rgba(16,24,40,.18);padding:6px;min-width:180px">
-      <div data-snippet="factbox"  style="padding:6px;border-radius:6px;cursor:pointer">/factbox — Fact callout</div>
-      <div data-snippet="quote"    style="padding:6px;border-radius:6px;cursor:pointer">/quote — Quotation</div>
-      <div data-snippet="callout"  style="padding:6px;border-radius:6px;cursor:pointer">/callout — Note/Warning</div>
-      <div data-snippet="source"   style="padding:6px;border-radius:6px;cursor:pointer">/source — Add a source</div>
-    </div>
-  `;
   document.body.appendChild(wrap);
 
   // Prefill (strip YAML front-matter if present)
@@ -175,29 +178,94 @@
   const status  = document.getElementById('geonote-status');
   const viewLink= document.getElementById('geonote-view');
 
-  // ---------- Toolbar actions ----------
-  function onToolClick(e){
-    const act = e.target?.dataset?.act;
-    if (!act) return;
+  // PREVIEW WIRING
+const previewBox    = document.getElementById('geonote-preview');
+const previewToggle = document.getElementById('geonote-preview-toggle');
 
-    if (act === 'bold')    return surround(ta, '**','**');
-    if (act === 'italic')  return surround(ta, '*','*');
-    if (act === 'link') {
-      const sel = ta.value.substring(ta.selectionStart, ta.selectionEnd) || 'link text';
-      const url = prompt('URL for link:', 'https://');
-      if (!url) return;
-      const {start,end,val} = getSel(ta);
-      const md = `[${sel}](${url})`;
-      ta.value = val.slice(0,start) + md + val.slice(end);
-      setSel(ta, start+md.length, start+md.length);
-      return;
-    }
-    if (act === 'h2')      return togglePrefix(ta, '## ');
-    if (act === 'h3')      return togglePrefix(ta, '### ');
-    if (act === 'ul')      return togglePrefix(ta, '- ');
-    if (act === 'ol')      return togglePrefix(ta, '1. ');
+function renderPreview(md){
+  // requires <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  previewBox.innerHTML = marked.parse(md);
+}
+
+// live update (light debounce)
+let _t;
+ta.addEventListener('input', () => {
+  if (!previewToggle.checked) return;
+  clearTimeout(_t);
+  _t = setTimeout(() => renderPreview(ta.value), 150);
+});
+
+// show/hide preview
+previewToggle.addEventListener('change', () => {
+  previewBox.style.display = previewToggle.checked ? 'block' : 'none';
+  if (previewToggle.checked) renderPreview(ta.value);
+});
+
+
+// ---------- Toolbar actions ----------
+function wrapSel(left, right = left){
+  const s = ta.selectionStart, e = ta.selectionEnd;
+  const before = ta.value.slice(0, s);
+  const sel    = ta.value.slice(s, e);
+  const after  = ta.value.slice(e);
+  ta.value = `${before}${left}${sel}${right}${after}`;
+  ta.focus();
+  ta.selectionStart = s + left.length;
+  ta.selectionEnd   = ta.selectionStart + sel.length;
+  ta.dispatchEvent(new Event('input'));
+}
+function togglePrefix(prefix){
+  const s = ta.selectionStart, e = ta.selectionEnd, val = ta.value;
+  const lineStart = val.lastIndexOf('\n', s - 1) + 1;
+  const lineEnd   = val.indexOf('\n', e);
+  const endIdx    = lineEnd === -1 ? val.length : lineEnd;
+  const lines     = val.slice(lineStart, endIdx).split('\n');
+  const allHave   = lines.every(l => l.startsWith(prefix));
+  const newLines  = lines.map(l => allHave ? l.replace(prefix,'') : prefix + l);
+  const out       = val.slice(0,lineStart) + newLines.join('\n') + val.slice(endIdx);
+  const delta     = (newLines.join('\n').length - (lines.join('\n').length));
+  ta.value = out;
+  ta.focus();
+  ta.selectionStart = s + (allHave ? -prefix.length : prefix.length);
+  ta.selectionEnd   = e + delta;
+  ta.dispatchEvent(new Event('input'));
+}
+
+document.getElementById('geonote-toolbar').addEventListener('click', (ev) => {
+  const b = ev.target.closest('button'); if (!b) return;
+
+  if (b.dataset.b   != null) return wrapSel('**','**'); // Bold
+  if (b.dataset.i   != null) return wrapSel('*','*');   // Italic
+  if (b.dataset.h)            return togglePrefix(b.dataset.h); // H2/H3
+  if (b.dataset.ul)           return togglePrefix('- ');        // bullets
+  if (b.dataset.ol)           return togglePrefix('1. ');       // numbered
+  if (b.dataset.link != null){
+    const url = prompt('URL','https://'); if (!url) return;
+    return wrapSel('[', `](${url})`);
   }
-  document.getElementById('geonote-toolbar').addEventListener('click', onToolClick);
+});
+
+document.getElementById('img-insert')?.addEventListener('click', () => {
+  const url   = prompt('Image URL'); if (!url) return;
+  const side  = (prompt('Float: left / right / none','left') || 'left').toLowerCase();
+  const width = prompt('Width (px or %)','320') || '320';
+  const cap   = prompt('Caption (optional)','') || '';
+  const unit  = /^\d+$/.test(width) ? 'px' : ''; // allow "45%" or "320"
+
+  const fig = `
+<figure class="img ${side !== 'none' ? 'float-'+side : ''}" style="max-width:${width}${unit}">
+  <img src="${url}" alt="">
+  ${cap ? `<figcaption>${cap}</figcaption>` : ''}
+</figure>`.trim();
+
+  const s = ta.selectionStart, e = ta.selectionEnd;
+  ta.value = ta.value.slice(0,s) + '\n' + fig + '\n' + ta.value.slice(e);
+  ta.focus();
+  ta.selectionStart = ta.selectionEnd = s + fig.length + 2;
+  ta.dispatchEvent(new Event('input'));
+});
+
+
 
   // ---------- Quick "Add source" ----------
   document.getElementById('src-add').addEventListener('click', () => {
