@@ -63,7 +63,7 @@
   const id = window.netlifyIdentity;
   const currentUser = () => (id && id.currentUser ? id.currentUser() : null);
 
-  // If not logged in, show a slim login strip and bail
+  // If not logged in, slim login strip
   if (!currentUser()) {
     const bar = document.createElement('div');
     bar.style.cssText = `
@@ -80,35 +80,187 @@
     return;
   }
 
-  // Full editor UI
+  // ---------- Utilities for textarea editing ----------
+  function getSel(el){
+    return {start: el.selectionStart, end: el.selectionEnd, val: el.value};
+  }
+  function setSel(el, start, end){ el.focus(); el.setSelectionRange(start, end); }
+  function surround(el, before, after){
+    const {start, end, val} = getSel(el);
+    const selected = val.slice(start, end);
+    const out = val.slice(0,start) + before + selected + after + val.slice(end);
+    el.value = out;
+    setSel(el, start + before.length, end + before.length);
+  }
+  function togglePrefix(el, prefix){
+    const {start, end, val} = getSel(el);
+    // operate on full lines in range
+    const lineStart = val.lastIndexOf('\n', start - 1) + 1;
+    const lineEnd   = val.indexOf('\n', end);
+    const endIdx    = lineEnd === -1 ? val.length : lineEnd;
+    const lines = val.slice(lineStart, endIdx).split('\n');
+    const allHave = lines.every(l => l.startsWith(prefix));
+    const newLines = lines.map(l => allHave ? l.replace(prefix,'') : prefix + l);
+    const out = val.slice(0,lineStart) + newLines.join('\n') + val.slice(endIdx);
+    const delta = (newLines.join('\n').length - (lines.join('\n').length));
+    el.value = out;
+    setSel(el, start + (allHave? -prefix.length : prefix.length), end + delta);
+  }
+  function insertBlock(el, text){
+    const {start, end, val} = getSel(el);
+    const block = (start>0 && val[start-1] !== '\n' ? '\n\n' : '\n') + text + '\n\n';
+    const out = val.slice(0,start) + block + val.slice(end);
+    el.value = out;
+    setSel(el, start + block.length, start + block.length);
+  }
+  function ensureSourcesSection(el){
+    if (!/^\s*##\s+Sources\s*$/m.test(el.value)){
+      el.value = el.value.trimEnd() + "\n\n## Sources\n";
+    }
+  }
+
+  // ---------- Editor UI ----------
   const wrap = document.createElement('div');
   wrap.style.cssText = `
     position:fixed;left:16px;right:16px;bottom:16px;background:#fff;border:1px solid #e3e7eb;
     border-radius:10px;box-shadow:0 12px 32px rgba(16,24,40,.18),0 1px 2px rgba(16,24,40,.06);
     z-index:9999;padding:12px;`;
   wrap.innerHTML = `
-    <div style="margin-bottom:8px;font-weight:700;">Inline editor</div>
-    <textarea id="geonote-editor" style="width:100%;height:240px;font:14px/1.5 ui-sans-serif,system-ui;resize:vertical;"></textarea>
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+      <!-- Toolbar -->
+      <div id="geonote-toolbar" style="display:flex;gap:6px;flex-wrap:wrap">
+        <button data-act="bold">B</button>
+        <button data-act="italic"><em>I</em></button>
+        <button data-act="link">Link</button>
+        <span style="width:1px;height:22px;background:#e5e7eb;margin:0 6px"></span>
+        <button data-act="h2">H2</button>
+        <button data-act="h3">H3</button>
+        <button data-act="ul">• List</button>
+        <button data-act="ol">1. List</button>
+      </div>
+
+      <!-- Quick source helper -->
+      <div style="display:flex;gap:6px;margin-left:auto;align-items:center">
+        <input id="src-title" placeholder="Source title" style="width:180px;padding:6px;border:1px solid #e3e7eb;border-radius:6px">
+        <input id="src-url"   placeholder="https://…" style="width:220px;padding:6px;border:1px solid #e3e7eb;border-radius:6px">
+        <button id="src-add"  style="border:1px solid #d6dbe1;background:#fff;border-radius:6px;padding:6px 10px;cursor:pointer">Add source</button>
+      </div>
+    </div>
+
+    <textarea id="geonote-editor" style="width:100%;height:260px;font:14px/1.5 ui-sans-serif,system-ui;resize:vertical;"></textarea>
+
     <div style="margin-top:8px;display:flex;gap:8px;align-items:center">
       <button id="geonote-save" style="border:1px solid #d6dbe1;background:#fff;border-radius:6px;padding:6px 10px;cursor:pointer">Save</button>
       <span id="geonote-status" style="margin-left:8px;color:#6b7280;"></span>
       <a id="geonote-view" style="margin-left:auto;display:none" href="#">View live →</a>
     </div>
+
+    <!-- Slash menu -->
+    <div id="slash-menu" style="display:none;position:absolute;bottom:90px;left:28px;background:#fff;border:1px solid #e3e7eb;border-radius:8px;box-shadow:0 12px 32px rgba(16,24,40,.18);padding:6px;min-width:180px">
+      <div data-snippet="factbox"  style="padding:6px;border-radius:6px;cursor:pointer">/factbox — Fact callout</div>
+      <div data-snippet="quote"    style="padding:6px;border-radius:6px;cursor:pointer">/quote — Quotation</div>
+      <div data-snippet="callout"  style="padding:6px;border-radius:6px;cursor:pointer">/callout — Note/Warning</div>
+      <div data-snippet="source"   style="padding:6px;border-radius:6px;cursor:pointer">/source — Add a source</div>
+    </div>
   `;
   document.body.appendChild(wrap);
 
-  // Prefill: strip YAML front-matter if present
+  // Prefill (strip YAML front-matter if present)
   const raw = document.querySelector('main')?.innerText || "";
-  const text = raw.startsWith('---')
-    ? raw.slice(raw.indexOf('\n---', 3) + 4).trimStart()
-    : raw;
+  const text = raw.startsWith('---') ? raw.slice(raw.indexOf('\n---', 3) + 4).trimStart() : raw;
   const ta = document.getElementById('geonote-editor');
   ta.value = text;
 
   const saveBtn = document.getElementById('geonote-save');
-  const status = document.getElementById('geonote-status');
-  const viewLink = document.getElementById('geonote-view');
+  const status  = document.getElementById('geonote-status');
+  const viewLink= document.getElementById('geonote-view');
 
+  // ---------- Toolbar actions ----------
+  function onToolClick(e){
+    const act = e.target?.dataset?.act;
+    if (!act) return;
+
+    if (act === 'bold')    return surround(ta, '**','**');
+    if (act === 'italic')  return surround(ta, '*','*');
+    if (act === 'link') {
+      const sel = ta.value.substring(ta.selectionStart, ta.selectionEnd) || 'link text';
+      const url = prompt('URL for link:', 'https://');
+      if (!url) return;
+      const {start,end,val} = getSel(ta);
+      const md = `[${sel}](${url})`;
+      ta.value = val.slice(0,start) + md + val.slice(end);
+      setSel(ta, start+md.length, start+md.length);
+      return;
+    }
+    if (act === 'h2')      return togglePrefix(ta, '## ');
+    if (act === 'h3')      return togglePrefix(ta, '### ');
+    if (act === 'ul')      return togglePrefix(ta, '- ');
+    if (act === 'ol')      return togglePrefix(ta, '1. ');
+  }
+  document.getElementById('geonote-toolbar').addEventListener('click', onToolClick);
+
+  // ---------- Quick "Add source" ----------
+  document.getElementById('src-add').addEventListener('click', () => {
+    const title = (document.getElementById('src-title').value || '').trim();
+    const url   = (document.getElementById('src-url').value   || '').trim();
+    if (!title || !url) { status.textContent = 'Enter title and URL.'; return; }
+    ensureSourcesSection(ta);
+    insertBlock(ta, `- [${title}](${url})`);
+    document.getElementById('src-title').value = '';
+    document.getElementById('src-url').value = '';
+    status.textContent = 'Source added (not saved yet).';
+  });
+
+  // ---------- Slash menu ----------
+  const slashMenu = document.getElementById('slash-menu');
+  let slashActive = false, slashBuffer = '';
+
+  function showSlash(){ slashMenu.style.display = 'block'; }
+  function hideSlash(){ slashMenu.style.display = 'none'; slashActive=false; slashBuffer=''; }
+
+  function insertSnippet(kind){
+    if (kind === 'factbox') insertBlock(ta, '> **Fact:** …');
+    if (kind === 'quote')   insertBlock(ta, '> “Quote…”\n> — Attribution');
+    if (kind === 'callout') insertBlock(ta, '> **Note:** …');
+    if (kind === 'source')  ensureSourcesSection(ta), insertBlock(ta, '- [Title](https://example.com)');
+    hideSlash();
+  }
+
+  slashMenu.addEventListener('mouseover', (e) => {
+    if (e.target.dataset.snippet) e.target.style.background = '#f6f7f9';
+  }, true);
+  slashMenu.addEventListener('mouseout', (e) => {
+    if (e.target.dataset.snippet) e.target.style.background = 'transparent';
+  }, true);
+  slashMenu.addEventListener('click', (e) => {
+    const k = e.target?.dataset?.snippet;
+    if (k) insertSnippet(k);
+  });
+
+  ta.addEventListener('keydown', (e) => {
+    if (e.key === '/' && !slashActive){
+      // only trigger if at line start or after space
+      const i = ta.selectionStart;
+      const prev = ta.value[i-1] || '\n';
+      if (prev === '\n' || prev === ' ') { slashActive = true; slashBuffer = ''; showSlash(); }
+    } else if (slashActive) {
+      if (e.key.length === 1 && /[a-z]/i.test(e.key)) {
+        slashBuffer += e.key.toLowerCase();
+      } else if (e.key === 'Backspace') {
+        slashBuffer = slashBuffer.slice(0,-1);
+        if (!slashBuffer) hideSlash();
+      } else if (e.key === 'Escape'){
+        hideSlash();
+      } else if (e.key === 'Enter'){
+        e.preventDefault();
+        const map = { factbox:'factbox', quote:'quote', callout:'callout', source:'source' };
+        const k = map[slashBuffer] || null;
+        if (k) insertSnippet(k); else hideSlash();
+      }
+    }
+  });
+
+  // ---------- Save ----------
   saveBtn.addEventListener('click', async () => {
     status.textContent = 'Saving…';
     saveBtn.disabled = true;
@@ -132,6 +284,7 @@
   });
 })();
 </script>
+
 
 
 </body>
