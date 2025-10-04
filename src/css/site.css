@@ -141,3 +141,16 @@ main{ display:flex; justify-content:center; padding:2rem 1rem }
 #country-tip .blurb{
   margin-top: 6px; font-size: 13px; line-height: 1.35; color: var(--muted);
 }
+
+/* Edit button in header */
+.edit-btn{
+  margin-left:auto;
+  border:1px solid #d6dbe1;
+  background:#fff;
+  border-radius:6px;
+  padding:6px 10px;
+  cursor:pointer;
+  font:14px/1 ui-sans-serif,system-ui;
+}
+.edit-btn:hover{ background:#f6f7f9 }
+

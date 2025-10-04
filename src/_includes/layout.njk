@@ -10,86 +10,129 @@
 <body>
   <header class="site-head">
     <a class="brand" href="/">◎</a>
+    <button id="edit-toggle" class="edit-btn" hidden>Edit</button>
   </header>
 
   <main>
     {{ content | safe }}
   </main>
   
- <!-- Always include this. It only runs when ?edit=1 is present. -->
-  <script>
-  (() => {
-    const url = new URL(location.href);
-    if (!url.searchParams.has('edit')) return;
+<!-- Netlify Identity: load once, globally -->
+<script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
 
-    // Load Netlify Identity dynamically
-    const idScript = document.createElement('script');
-    idScript.src = 'https://identity.netlify.com/v1/netlify-identity-widget.js';
-    document.head.appendChild(idScript);
+<!-- Header Edit/Done toggle -->
+<script>
+(() => {
+  const btn = document.getElementById('edit-toggle');
+  const url = new URL(location.href);
 
-    // --- small inline editor UI ---
-    const wrap = document.createElement('div');
-    wrap.style.position = 'fixed';
-    wrap.style.right = '16px';
-    wrap.style.bottom = '16px';
-    wrap.style.left = '16px';
-    wrap.style.background = '#fff';
-    wrap.style.border = '1px solid #e5e7eb';
-    wrap.style.padding = '12px';
-    wrap.style.zIndex = '9999';
-    wrap.innerHTML = `
-      <div style="margin-bottom:8px;font-weight:700">Inline editor</div>
-      <textarea id="geonote-editor" style="width:100%;height:240px;font:14px/1.5 ui-sans-serif,system-ui"></textarea>
-      <div style="margin-top:8px;display:flex;gap:8px">
-        <button id="geonote-login">Log in</button>
-        <button id="geonote-save">Save</button>
-        <span id="geonote-status" style="margin-left:8px;color:#6b7280"></span>
-      </div>
-    `;
-    document.body.appendChild(wrap);
+  function setBtnText(){ btn.textContent = url.searchParams.has('edit') ? 'Done' : 'Edit'; }
+  function refreshButton(user){
+    if (user) { btn.hidden = false; setBtnText(); }
+    else { btn.hidden = true; }
+  }
 
-    // Prefill textarea once (keeps YAML front matter out)
-    const raw = document.querySelector('main')?.innerText || "";
-    const text = raw.startsWith('---')
-      ? raw.slice(raw.indexOf('\n---', 3) + 4).trimStart()
-      : raw;
-    const ta = document.getElementById('geonote-editor');
-    const status = document.getElementById('geonote-status');
-    ta.value = text;
-
-    // Buttons
-    document.getElementById('geonote-login').onclick = () => {
-      window.netlifyIdentity?.open();
-    };
-
-    document.getElementById('geonote-save').onclick = async () => {
-      status.textContent = 'Saving…';
-
-      const id = window.netlifyIdentity;
-      const user = id && id.currentUser ? id.currentUser() : null;
-      if (!user) { status.textContent = 'Please log in first.'; return; }
-      const token = await user.jwt();
-
-      try {
-        const res = await fetch('/.netlify/functions/save-country', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({
-            path: location.pathname,                 // e.g. /country/co/
-            content: ta.value
-          })
-        });
-        if (!res.ok) throw new Error(await res.text());
-        status.textContent = 'Saved.';
-      } catch (err) {
-        status.textContent = 'Error: ' + err.message;
+  if (window.netlifyIdentity) {
+    netlifyIdentity.on('init', refreshButton);
+    netlifyIdentity.on('login', refreshButton);
+    netlifyIdentity.on('logout', () => {
+      refreshButton(null);
+      if (url.searchParams.has('edit')) {
+        url.searchParams.delete('edit');
+        location.href = url.toString();
       }
-    };
-  })();
-  </script>
+    });
+    netlifyIdentity.init();
+  }
+
+  btn?.addEventListener('click', () => {
+    const u = new URL(location.href);
+    if (u.searchParams.has('edit')) u.searchParams.delete('edit');
+    else u.searchParams.set('edit','1');
+    location.href = u.toString();
+  });
+})();
+</script>
+
+<!-- Inline editor (only shows when ?edit=1; if logged out, shows a login strip) -->
+<script>
+(() => {
+  const url = new URL(location.href);
+  if (!url.searchParams.has('edit')) return;
+
+  const id = window.netlifyIdentity;
+  const currentUser = () => (id && id.currentUser ? id.currentUser() : null);
+
+  // If not logged in, show a slim login strip and bail
+  if (!currentUser()) {
+    const bar = document.createElement('div');
+    bar.style.cssText = `
+      position:fixed;left:16px;right:16px;bottom:16px;
+      padding:10px 12px;background:#fff;border:1px solid #e3e7eb;border-radius:8px;
+      box-shadow:0 8px 24px rgba(16,24,40,.12);
+      font:14px/1.2 ui-sans-serif,system-ui;display:flex;gap:8px;align-items:center;z-index:9999;`;
+    bar.innerHTML = `
+      <strong>Editing</strong> requires login.
+      <button id="loginBtn" style="margin-left:auto;border:1px solid #d6dbe1;background:#fff;border-radius:6px;padding:6px 10px;cursor:pointer">Log in</button>
+    `;
+    document.body.appendChild(bar);
+    document.getElementById('loginBtn')?.addEventListener('click', () => id?.open());
+    return;
+  }
+
+  // Full editor UI
+  const wrap = document.createElement('div');
+  wrap.style.cssText = `
+    position:fixed;left:16px;right:16px;bottom:16px;background:#fff;border:1px solid #e3e7eb;
+    border-radius:10px;box-shadow:0 12px 32px rgba(16,24,40,.18),0 1px 2px rgba(16,24,40,.06);
+    z-index:9999;padding:12px;`;
+  wrap.innerHTML = `
+    <div style="margin-bottom:8px;font-weight:700;">Inline editor</div>
+    <textarea id="geonote-editor" style="width:100%;height:240px;font:14px/1.5 ui-sans-serif,system-ui;resize:vertical;"></textarea>
+    <div style="margin-top:8px;display:flex;gap:8px;align-items:center">
+      <button id="geonote-save" style="border:1px solid #d6dbe1;background:#fff;border-radius:6px;padding:6px 10px;cursor:pointer">Save</button>
+      <span id="geonote-status" style="margin-left:8px;color:#6b7280;"></span>
+      <a id="geonote-view" style="margin-left:auto;display:none" href="#">View live →</a>
+    </div>
+  `;
+  document.body.appendChild(wrap);
+
+  // Prefill: strip YAML front-matter if present
+  const raw = document.querySelector('main')?.innerText || "";
+  const text = raw.startsWith('---')
+    ? raw.slice(raw.indexOf('\n---', 3) + 4).trimStart()
+    : raw;
+  const ta = document.getElementById('geonote-editor');
+  ta.value = text;
+
+  const saveBtn = document.getElementById('geonote-save');
+  const status = document.getElementById('geonote-status');
+  const viewLink = document.getElementById('geonote-view');
+
+  saveBtn.addEventListener('click', async () => {
+    status.textContent = 'Saving…';
+    saveBtn.disabled = true;
+
+    try {
+      const token = await currentUser().jwt();
+      const res = await fetch('/.netlify/functions/save-country', {
+        method: 'POST',
+        headers: { 'Content-Type':'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ path: location.pathname, content: ta.value })
+      });
+      if (!res.ok) throw new Error(await res.text());
+      status.textContent = 'Saved.';
+      const u = new URL(location.href); u.searchParams.delete('edit');
+      viewLink.href = u.toString(); viewLink.style.display = 'inline';
+    } catch (err) {
+      status.textContent = 'Error: ' + (err?.message || err);
+    } finally {
+      saveBtn.disabled = false;
+    }
+  });
+})();
+</script>
+
 
 </body>
 </html>
